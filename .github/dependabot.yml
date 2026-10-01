@@ -23,6 +23,10 @@ updates:
     groups:
       npm-minor-and-patch:
         update-types: [minor, patch]
+    # Node types track the Node version in .nvmrc (24), not the latest release.
+    ignore:
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: github-actions
     directory: /
