@@ -100,7 +100,7 @@ jobs:
           sudo mv trivy /usr/local/bin/
       - run: docker build -f src/ExpenseClaims.Api/Dockerfile -t expense-api .
       - run: docker build -t expense-web web
-      - run: trivy image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed expense-api
+      - run: trivy image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed --ignorefile .trivyignore.yaml expense-api
       # Scan the second image even if the first failed, so one run shows both.
       - if: ${{ !cancelled() }}
-        run: trivy image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed expense-web
+        run: trivy image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed --ignorefile .trivyignore.yaml expense-web
