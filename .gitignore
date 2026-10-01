@@ -25,3 +25,6 @@ crash.log
 .vs/
 .vscode/
 .idea/
+
+# Claude
+.claude/
