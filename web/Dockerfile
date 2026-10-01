@@ -6,4 +6,7 @@ COPY . .
 RUN npm run build
 
 FROM nginxinc/nginx-unprivileged:alpine
+USER root
+RUN apk upgrade --no-cache
+USER 101
 COPY --from=build /app/dist /usr/share/nginx/html

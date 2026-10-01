@@ -9,4 +9,5 @@ RUN dotnet publish src/ExpenseClaims.Api --no-restore -c Release -o /app
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled
 WORKDIR /app
 COPY --from=build /app .
+USER $APP_UID
 ENTRYPOINT ["dotnet", "ExpenseClaims.Api.dll"]
