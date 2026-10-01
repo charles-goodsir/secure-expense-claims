@@ -1,0 +1,35 @@
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directories:
+      - /src/ExpenseClaims.Api
+      - /tests/ExpenseClaims.Api.Tests
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    # Minor and patch updates share one PR. Each major update gets its own PR,
+    # so one breaking upgrade can't block the rest.
+    groups:
+      nuget-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      npm-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      actions-minor-and-patch:
+        update-types: [minor, patch]
