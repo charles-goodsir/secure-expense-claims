@@ -6,4 +6,3 @@ vulnerabilities:
       chiseled images have no package manager to upgrade it. Recheck when this
       expires; drop it once the rebuilt image scans clean.
     expired_at: 2026-10-16
-    
