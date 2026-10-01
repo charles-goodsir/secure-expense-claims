@@ -1,0 +1,27 @@
+# .NET
+bin/
+obj/
+*.user
+TestResults/
+
+# Node
+node_modules/
+dist/
+
+# Local env files (keep the example)
+.env
+.env.*
+!.env.example
+
+# Terraform (the .terraform.lock.hcl lock file IS committed)
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+
+# OS / editor
+.DS_Store
+.vs/
+.vscode/
+.idea/
