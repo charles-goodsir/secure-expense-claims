@@ -1,0 +1,19 @@
+# Local development only. Azure uses Postgres Flexible Server with managed identity.
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: expenseclaims
+      POSTGRES_USER: expenseclaims
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    ports:
+      # Loopback only: Docker-published ports skip the host firewall.
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U expenseclaims -d expenseclaims']
+      interval: 5s
+      retries: 10
+volumes:
+  db-data:
