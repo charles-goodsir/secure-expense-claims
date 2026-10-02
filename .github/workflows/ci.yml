@@ -104,3 +104,22 @@ jobs:
       # Scan the second image even if the first failed, so one run shows both.
       - if: ${{ !cancelled() }}
         run: trivy image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed --ignorefile .trivyignore.yaml expense-web
+  workflows:
+    name: Workflow lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install actionlint (checksum verified)
+        run: |
+          set -euo pipefail
+          VERSION=1.7.12
+          BASE_URL=https://github.com/rhysd/actionlint/releases/download/v${VERSION}
+          cd "$RUNNER_TEMP"
+          curl -sSfLO "${BASE_URL}/actionlint_${VERSION}_linux_amd64.tar.gz"
+          curl -sSfLO "${BASE_URL}/actionlint_${VERSION}_checksums.txt"
+          grep "linux_amd64.tar.gz$" "actionlint_${VERSION}_checksums.txt" | sha256sum -c -
+          tar -xzf "actionlint_${VERSION}_linux_amd64.tar.gz" actionlint
+          sudo mv actionlint /usr/local/bin/
+      - run: actionlint -color
