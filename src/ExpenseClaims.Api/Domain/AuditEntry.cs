@@ -1,5 +1,5 @@
 namespace ExpenseClaims.Api.Domain;
-
+// Append-only. The API never updates or deletes these rows (threat T3).
 
 public class AuditEntry
 {
