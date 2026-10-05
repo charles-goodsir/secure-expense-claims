@@ -1,6 +1,9 @@
 using ExpenseClaims.Api.Data;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
+using ExpenseClaims.Api.Auth;
+using Microsoft.AspNetCore.Authentication;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,7 +13,23 @@ builder.Services.AddDbContext<ClaimsDbContext>(options =>
 
 builder.Services.AddHealthChecks().AddDbContextCheck<ClaimsDbContext>(tags: ["ready"]);
 
+// Development uses the stub sign-in. Every other environment uses JWT bearer tokens, which
+// reject every request until Entra ID is configured in Phase 3.
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddAuthentication(DevAuthHandler.SchemeName)
+        .AddScheme<AuthenticationSchemeOptions, DevAuthHandler>(DevAuthHandler.SchemeName, null);
+}
+else
+{
+    builder.Services.AddAuthentication().AddJwtBearer();
+}
+builder.Services.AddAuthorization();
+
 var app = builder.Build();
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())
 {
@@ -25,5 +44,12 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 {
     Predicate = check => check.Tags.Contains("ready")
 });
+
+// Who the API thinks the caller is. Useful for checking sign-in, and for Burp in Phase 3.
+app.MapGet("/me", (ClaimsPrincipal user) => new
+{
+    Id = user.FindFirstValue(ClaimTypes.NameIdentifier),
+    Roles = user.FindAll(ClaimTypes.Role).Select(role => role.Value),
+}).RequireAuthorization();
 
 app.Run();
