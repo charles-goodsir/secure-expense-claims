@@ -29,6 +29,9 @@ jobs:
       # NuGet audit runs during restore and fails on high or critical advisories.
       - run: dotnet restore --locked-mode
       - run: dotnet build --no-restore --configuration Release
+      - run: dotnet tool restore
+      # Fails if someone changed the model without generating a migration.
+      - run: dotnet ef migrations has-pending-model-changes --project src/ExpenseClaims.Api --no-build --configuration Release
       - run: dotnet test --no-build --configuration Release
 
   web:
