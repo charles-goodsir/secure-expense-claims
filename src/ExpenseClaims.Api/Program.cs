@@ -58,5 +58,5 @@ app.MapGet("/me", (ClaimsPrincipal user) => new
     Roles = user.FindAll(ClaimTypes.Role).Select(role => role.Value),
 }).RequireAuthorization();
 app.MapClaimEndpoints();
-
+app.MapWorkflowEndpoints();
 app.Run();
