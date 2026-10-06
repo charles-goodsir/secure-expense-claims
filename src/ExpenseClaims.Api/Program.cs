@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using ExpenseClaims.Api.Auth;
 using Microsoft.AspNetCore.Authentication;
+using System.Text.Json.Serialization;
+using ExpenseClaims.Api.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,6 +27,10 @@ else
     builder.Services.AddAuthentication().AddJwtBearer();
 }
 builder.Services.AddAuthorization();
+builder.Services.AddValidation();
+// Enums go over the wire as names ("Draft"), the same as they're stored in the database.
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 var app = builder.Build();
 
@@ -51,5 +57,6 @@ app.MapGet("/me", (ClaimsPrincipal user) => new
     Id = user.FindFirstValue(ClaimTypes.NameIdentifier),
     Roles = user.FindAll(ClaimTypes.Role).Select(role => role.Value),
 }).RequireAuthorization();
+app.MapClaimEndpoints();
 
 app.Run();
