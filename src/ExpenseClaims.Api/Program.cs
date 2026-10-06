@@ -6,6 +6,8 @@ using ExpenseClaims.Api.Auth;
 using Microsoft.AspNetCore.Authentication;
 using System.Text.Json.Serialization;
 using ExpenseClaims.Api.Claims;
+using Azure.Storage.Blobs;
+using ExpenseClaims.Api.Receipts;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,7 +34,19 @@ builder.Services.AddValidation();
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
+
+
+// Receipts live in Blob Storage: Azurite locally, Azure Storage with managed identity in Phase 2.
+builder.Services.AddSingleton(_ =>
+    new BlobContainerClient(builder.Configuration.GetConnectionString("Receipts"), "receipts"));
+
 var app = builder.Build();
+
+// Locally the container is created on startup. In Azure, Terraform creates it.
+if (app.Environment.IsDevelopment())
+{
+    await app.Services.GetRequiredService<BlobContainerClient>().CreateIfNotExistsAsync();
+}
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -59,4 +73,5 @@ app.MapGet("/me", (ClaimsPrincipal user) => new
 }).RequireAuthorization();
 app.MapClaimEndpoints();
 app.MapWorkflowEndpoints();
+app.MapReceiptEndpoints();
 app.Run();

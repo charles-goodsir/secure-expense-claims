@@ -9,6 +9,8 @@ public class ClaimsDbContext(DbContextOptions<ClaimsDbContext> options) : DbCont
     public DbSet<Claim> Claims => Set<Claim>();
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
 
+    public DbSet<Receipt> Receipts => Set<Receipt>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(user =>
@@ -41,6 +43,13 @@ public class ClaimsDbContext(DbContextOptions<ClaimsDbContext> options) : DbCont
             audit.Property(a => a.ToStatus).HasConversion<string>().HasMaxLength(20);
             audit.Property(a => a.Detail).HasMaxLength(1000);
             audit.HasIndex(a => a.ClaimId);
+        });
+
+        modelBuilder.Entity<Receipt>(receipt =>
+        {
+            receipt.Property(r => r.ContentType).HasMaxLength(50);
+            receipt.Property(r => r.OriginalFileName).HasMaxLength(255);
+            receipt.HasOne<Claim>().WithMany().HasForeignKey(r => r.ClaimId).OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

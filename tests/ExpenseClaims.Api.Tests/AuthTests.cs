@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace ExpenseClaims.Api.Tests;
 
-public class AuthTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+public class AuthTests(ApiFactory factory) : IClassFixture<ApiFactory>
 {
     private static HttpRequestMessage MeRequest(string? userId, string? roles)
     {

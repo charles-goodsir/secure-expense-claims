@@ -15,5 +15,15 @@ services:
       test: ['CMD-SHELL', 'pg_isready -U expenseclaims -d expenseclaims']
       interval: 5s
       retries: 10
+  blobs:
+    # Azure Blob Storage emulator. The Blob SDK uses a newer storage API version than
+    # Azurite knows about yet, hence --skipApiVersionCheck.
+    image: mcr.microsoft.com/azure-storage/azurite:3.37.0
+    command: azurite-blob --blobHost 0.0.0.0 --location /data --skipApiVersionCheck
+    ports:
+      - '127.0.0.1:10000:10000'
+    volumes:
+      - blob-data:/data
 volumes:
   db-data:
+  blob-data:
