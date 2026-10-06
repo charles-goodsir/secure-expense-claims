@@ -26,12 +26,12 @@ public static class Workflow
 
     }
     // A manager sees claims from their direct reports only, never their own.
-    private static IQueryable<Claim> ManagedBy(this IQueryable<Claim> claims, Guid managerId) =>
+    internal static IQueryable<Claim> ManagedBy(this IQueryable<Claim> claims, Guid managerId) =>
         claims.Where(c => c.Employee!.ManagerId == managerId && c.EmployeeId != managerId);
 
     // Finance sees approved and paid claims across the org, never their own.
 
-    private static IQueryable<Claim> PayableBy(this IQueryable<Claim> claims, Guid financeId) =>
+    internal static IQueryable<Claim> PayableBy(this IQueryable<Claim> claims, Guid financeId) =>
         claims.Where(c => (c.Status == ClaimStatus.Approved || c.Status == ClaimStatus.Paid) && c.EmployeeId != financeId);
 
     private static async Task<IResult> ListForApprovalAsync(ClaimsPrincipal user, ClaimsDbContext db)
