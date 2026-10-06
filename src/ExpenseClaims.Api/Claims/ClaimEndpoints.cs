@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Security.Claims;
 using ExpenseClaims.Api.Data;
 using ExpenseClaims.Api.Domain;
@@ -16,9 +17,10 @@ public static class ClaimEndpoints
         claims.MapGet("/", ListMineAsync);
         claims.MapGet("/{id:guid}", GetAsync);
         claims.MapPut("/{id:guid}", UpdateAsync);
+        claims.MapPost("/{id:guid}/submit", SubmitAsync);
     }
 
-    private static Guid CallerId(ClaimsPrincipal user) =>
+    internal static Guid CallerId(ClaimsPrincipal user) =>
         Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
     private static async Task<IResult> CreateAsync(CreateClaimRequest request, ClaimsPrincipal user, ClaimsDbContext db)
@@ -87,5 +89,23 @@ public static class ClaimEndpoints
             return Results.Conflict();
         }
         return Results.Ok(ClaimResponse.From(claim));
+    }
+
+    private static async Task<IResult> SubmitAsync(Guid id, ClaimsPrincipal user, ClaimsDbContext db)
+    {
+        var callerId = CallerId(user);
+        var claim = await db.Claims.Include(c => c.Employee)
+            .SingleOrDefaultAsync(c => c.Id == id && c.EmployeeId == callerId);
+        if (claim is null)
+        {
+            return Results.NotFound();
+        }
+        // A claim nobody can approve would sit in Submitted forever.
+        if (claim.Status != ClaimStatus.Draft || claim.Employee!.ManagerId is null)
+        {
+            return Results.Conflict();
+        }
+        claim.SubmittedAt = DateTimeOffset.UtcNow;
+        return await Workflow.MoveAsync(claim, ClaimStatus.Submitted, callerId, "Submit", db);
     }
 }
