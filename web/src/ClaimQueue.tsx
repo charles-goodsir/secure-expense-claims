@@ -1,32 +1,39 @@
 import { useEffect, useState } from 'react'
 import { api, ApiError, formatMoney, type Claim, type Identity } from './api'
 
-type Props = { identity: Identity }
+type Props = {
+  identity: Identity
+  title: string
+  // The list endpoint, such as '/approvals'. The API decides which claims it returns.
+  listPath: string
+  // One button per action. Each posts to /claims/{id}/{action}.
+  actions: string[]
+}
 
-// Submitted claims from the manager's direct reports. The API decides which claims appear
-// and who may decide them; this page only shows the result.
-export function Approvals({ identity }: Props) {
+// A list of claims waiting on the signed-in user, with a button for each action they can take.
+// The API decides which claims appear and who may act on them; this page only shows the result.
+export function ClaimQueue({ identity, title, listPath, actions }: Props) {
   const [claims, setClaims] = useState<Claim[]>([])
   const [error, setError] = useState<string | null>(null)
 
   async function load() {
-    setClaims(await api<Claim[]>(identity, '/approvals'))
+    setClaims(await api<Claim[]>(identity, listPath))
   }
 
   useEffect(() => {
     let current = true
-    api<Claim[]>(identity, '/approvals')
+    api<Claim[]>(identity, listPath)
       .then((list) => current && setClaims(list))
       .catch((e: Error) => current && setError(e.message))
     return () => {
       current = false
     }
-  }, [identity])
+  }, [identity, listPath])
 
-  async function decide(claim: Claim, decision: 'approve' | 'reject') {
+  async function act(claim: Claim, action: string) {
     setError(null)
     try {
-      await api(identity, `/claims/${claim.id}/${decision}`, { method: 'POST' })
+      await api(identity, `/claims/${claim.id}/${action}`, { method: 'POST' })
     } catch (e) {
       setError(e instanceof ApiError ? `${e.status}: ${e.message}` : String(e))
     }
@@ -35,7 +42,7 @@ export function Approvals({ identity }: Props) {
 
   return (
     <section>
-      <h2>Waiting for my approval</h2>
+      <h2>{title}</h2>
 
       {error && (
         <p role="alert" className="error">
@@ -57,12 +64,15 @@ export function Approvals({ identity }: Props) {
               <td>{claim.description}</td>
               <td>{formatMoney(claim.amount, claim.currency)}</td>
               <td className="actions">
-                <button type="button" onClick={() => decide(claim, 'approve')}>
-                  Approve
-                </button>
-                <button type="button" onClick={() => decide(claim, 'reject')}>
-                  Reject
-                </button>
+                {actions.map((action) => (
+                  <button
+                    key={action}
+                    type="button"
+                    onClick={() => act(claim, action)}
+                  >
+                    {action[0].toUpperCase() + action.slice(1)}
+                  </button>
+                ))}
               </td>
             </tr>
           ))}
