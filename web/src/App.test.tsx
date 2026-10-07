@@ -16,7 +16,7 @@ const expected: Record<string, string[]> = {
   Alice: ['My claims'],
   Manny: ['Waiting for my approval', 'My claims'],
   Fiona: ['Approved, waiting for payment', 'My claims'],
-  Adam: [],
+  Adam: ['Users', 'Audit log'],
 }
 
 it.each(devIdentities)('shows $name the right sections', async (identity) => {
