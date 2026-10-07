@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { devIdentities, type Identity } from './api'
+import { ClaimQueue } from './ClaimQueue'
 import { MyClaims } from './MyClaims'
-import { Approvals } from './Approvals'
 
 const storageKey = 'dev-identity'
 
@@ -44,7 +44,22 @@ export default function App() {
       <main>
         {/* key forces a fresh component, and a fresh load, when the identity changes. */}
         {identity.roles.includes('Manager') && (
-          <Approvals key={identity.id} identity={identity} />
+          <ClaimQueue
+            key={`${identity.id}-approvals`}
+            identity={identity}
+            title="Waiting for my approval"
+            listPath="/approvals"
+            actions={['approve', 'reject']}
+          />
+        )}
+        {identity.roles.includes('Finance') && (
+          <ClaimQueue
+            key={`${identity.id}-payments`}
+            identity={identity}
+            title="Approved, waiting for payment"
+            listPath="/payments"
+            actions={['pay']}
+          />
         )}
         {identity.roles.includes('Employee') ? (
           <MyClaims key={identity.id} identity={identity} />
