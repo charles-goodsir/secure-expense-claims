@@ -100,10 +100,18 @@ public static class ClaimEndpoints
         {
             return Results.NotFound();
         }
-        // A claim nobody can approve would sit in Submitted forever.
-        if (claim.Status != ClaimStatus.Draft || claim.Employee!.ManagerId is null)
+        if (claim.Status != ClaimStatus.Draft)
         {
             return Results.Conflict();
+        }
+        // A claim nobody can approve would sit in Submitted forever.
+
+        if (claim.Employee!.ManagerId is null)
+        {
+            return Results.Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                detail: "You have no manager to approve this claim. Ask an admin to set you one."
+            );
         }
         claim.SubmittedAt = DateTimeOffset.UtcNow;
         return await Workflow.MoveAsync(claim, ClaimStatus.Submitted, callerId, "Submit", db);

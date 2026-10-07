@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using ExpenseClaims.Api.Domain;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace ExpenseClaims.Api.Tests;
@@ -72,6 +73,8 @@ public class WorkflowTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var response = await loner.PostAsync($"/claims/{claim.Id}/submit", null);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        Assert.Contains("no manager", problem!.Detail);
     }
 
     [Fact]

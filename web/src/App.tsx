@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { devIdentities, type Identity } from './api'
 import { MyClaims } from './MyClaims'
+import { Approvals } from './Approvals'
 
 const storageKey = 'dev-identity'
 
@@ -41,13 +42,16 @@ export default function App() {
       </header>
 
       <main>
+        {/* key forces a fresh component, and a fresh load, when the identity changes. */}
+        {identity.roles.includes('Manager') && (
+          <Approvals key={identity.id} identity={identity} />
+        )}
         {identity.roles.includes('Employee') ? (
-          // key forces a fresh component, and a fresh load, when the identity changes.
           <MyClaims key={identity.id} identity={identity} />
         ) : (
           <p>
-            {identity.name} has no employee claims. Admin pages arrive in the
-            next step.
+            {identity.name} has no employee claims. Admin pages arrive in a
+            later step.
           </p>
         )}
       </main>
