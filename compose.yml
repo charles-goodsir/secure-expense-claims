@@ -24,6 +24,29 @@ services:
       - '127.0.0.1:10000:10000'
     volumes:
       - blob-data:/data
+  api:
+    build:
+      context: .
+      dockerfile: src/ExpenseClaims.Api/Dockerfile
+    environment:
+      # Development turns on the dev sign-in headers, migrations and the seed users. The same
+      # image runs in Azure without it, where the dev sign-in is never registered (threat S2).
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Claims: Host=db;Database=expenseclaims;Username=expenseclaims;Password=${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      # Azurite's development account, reached by service name instead of localhost.
+      ConnectionStrings__Receipts: UseDevelopmentStorage=true;DevelopmentStorageProxyUri=http://blobs
+    # No published port: only the web container can reach the API.
+    depends_on:
+      db:
+        condition: service_healthy
+      blobs:
+        condition: service_started
+  web:
+    build: web
+    ports:
+      - '127.0.0.1:8080:8080'
+    depends_on:
+      - api
 volumes:
   db-data:
   blob-data:
