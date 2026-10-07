@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { devIdentities, type Identity } from './api'
 import { ClaimQueue } from './ClaimQueue'
 import { MyClaims } from './MyClaims'
+import { Admin } from './Admin'
 
 const storageKey = 'dev-identity'
 
@@ -61,13 +62,11 @@ export default function App() {
             actions={['pay']}
           />
         )}
-        {identity.roles.includes('Employee') ? (
+        {identity.roles.includes('Employee') && (
           <MyClaims key={identity.id} identity={identity} />
-        ) : (
-          <p>
-            {identity.name} has no employee claims. Admin pages arrive in a
-            later step.
-          </p>
+        )}
+        {identity.roles.includes('Admin') && (
+          <Admin key={identity.id} identity={identity} />
         )}
       </main>
     </div>
