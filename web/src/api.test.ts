@@ -37,6 +37,22 @@ describe('api', () => {
     expect(error).toMatchObject({ status: 409, message: 'Conflict' })
   })
 
+  it('leaves Content-Type to the browser for a file upload', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response('{}', { status: 201 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await api(alice, '/claims/x/receipts', {
+      method: 'POST',
+      body: new FormData(),
+    })
+
+    expect(fetchMock.mock.calls[0][1].headers).not.toHaveProperty(
+      'Content-Type',
+    )
+  })
+
   it('returns undefined for 204 No Content', async () => {
     vi.stubGlobal(
       'fetch',

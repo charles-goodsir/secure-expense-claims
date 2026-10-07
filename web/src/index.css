@@ -120,3 +120,24 @@ td {
 .error {
   color: var(--danger);
 }
+
+.receipts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+button.link {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.upload input {
+  display: block;
+  font-size: 0.8rem;
+}

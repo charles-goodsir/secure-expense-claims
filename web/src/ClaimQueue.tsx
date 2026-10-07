@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, ApiError, formatMoney, type Claim, type Identity } from './api'
+import { Receipts } from './Receipts'
 
 type Props = {
   identity: Identity
@@ -55,6 +56,7 @@ export function ClaimQueue({ identity, title, listPath, actions }: Props) {
           <tr>
             <th>Description</th>
             <th>Amount</th>
+            <th>Receipts</th>
             <th />
           </tr>
         </thead>
@@ -63,6 +65,13 @@ export function ClaimQueue({ identity, title, listPath, actions }: Props) {
             <tr key={claim.id}>
               <td>{claim.description}</td>
               <td>{formatMoney(claim.amount, claim.currency)}</td>
+              <td>
+                <Receipts
+                  identity={identity}
+                  claimId={claim.id}
+                  canUpload={false}
+                />
+              </td>
               <td className="actions">
                 {actions.map((action) => (
                   <button
@@ -78,7 +87,7 @@ export function ClaimQueue({ identity, title, listPath, actions }: Props) {
           ))}
           {claims.length === 0 && (
             <tr>
-              <td colSpan={3}>Nothing waiting.</td>
+              <td colSpan={4}>Nothing waiting.</td>
             </tr>
           )}
         </tbody>

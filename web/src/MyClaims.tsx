@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { api, ApiError, formatMoney, type Claim, type Identity } from './api'
+import { Receipts } from './Receipts'
 
 type Props = { identity: Identity }
 
@@ -111,6 +112,7 @@ export function MyClaims({ identity }: Props) {
             <th>Description</th>
             <th>Amount</th>
             <th>Status</th>
+            <th>Receipts</th>
             <th />
           </tr>
         </thead>
@@ -123,6 +125,13 @@ export function MyClaims({ identity }: Props) {
                 <span className={`status status-${claim.status.toLowerCase()}`}>
                   {claim.status}
                 </span>
+              </td>
+              <td>
+                <Receipts
+                  identity={identity}
+                  claimId={claim.id}
+                  canUpload={claim.status === 'Draft'}
+                />
               </td>
               <td className="actions">
                 {claim.status === 'Draft' && (
@@ -140,7 +149,7 @@ export function MyClaims({ identity }: Props) {
           ))}
           {claims.length === 0 && (
             <tr>
-              <td colSpan={4}>No claims yet.</td>
+              <td colSpan={5}>No claims yet.</td>
             </tr>
           )}
         </tbody>

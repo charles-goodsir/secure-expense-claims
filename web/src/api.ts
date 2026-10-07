@@ -60,10 +60,13 @@ export async function api<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
+  // JSON bodies are sent as strings. A FormData upload must not get this header: the browser
+  // sets multipart/form-data itself, with the boundary the API needs to read the parts.
+  const json = typeof init.body === 'string'
   const response = await fetch(`/api${path}`, {
     ...init,
     headers: {
-      'Content-Type': 'application/json',
+      ...(json ? { 'Content-Type': 'application/json' } : {}),
       ...devHeaders(identity),
       ...init.headers,
     },
@@ -79,6 +82,21 @@ export async function api<T>(
   return response.status === 204
     ? (undefined as T)
     : ((await response.json()) as T)
+}
+// Receipts need the sign-in headers, so a plain link won't work. This fetches the file and
+// hands it to the browser as a download, using the file name the API chose.
+export async function download(identity: Identity, path: string) {
+  const response = await fetch(`/api${path}`, { headers: devHeaders(identity) })
+  if (!response.ok) {
+    throw new ApiError(response.status, response.statusText)
+  }
+  const disposition = response.headers.get('Content-Disposition') ?? ''
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(await response.blob())
+  link.download = /filename=([^;]+)/.exec(disposition)?.[1] ?? 'receipt'
+  link.click()
+  // Give the browser a moment to start the download before the URL is released.
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000)
 }
 
 export function formatMoney(amount: number, currency: string): string {
