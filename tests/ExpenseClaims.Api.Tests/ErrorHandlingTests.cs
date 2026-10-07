@@ -10,8 +10,9 @@ public class ErrorHandlingTests(ApiFactory factory) : IClassFixture<ApiFactory>
     [Fact]
     public async Task Unexpected_error_returns_a_generic_problem_without_internal_details()
     {
-        var broken = factory.WithWebHostBuilder(builder =>
-            builder.UseSetting("ConnectionStrings:Claims", "Host=127.0.0.1;Port=1;Database=x;Username=x;Password=x;Timeout=2"));
+        var broken = factory.WithWebHostBuilder(builder => builder
+     .UseSetting("ConnectionStrings:Claims", "Host=127.0.0.1;Port=1;Database=x;Username=x;Password=x;Timeout=2")
+     .UseSetting("LocalSetup:Enabled", "false"));
         var client = broken.CreateClient();
         client.DefaultRequestHeaders.Add("X-Dev-User", Guid.NewGuid().ToString());
         client.DefaultRequestHeaders.Add("X-Dev-Roles", "Employee");

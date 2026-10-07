@@ -9,6 +9,7 @@ using ExpenseClaims.Api.Claims;
 using Azure.Storage.Blobs;
 using ExpenseClaims.Api.Receipts;
 using System.Threading.RateLimiting;
+using ExpenseClaims.Api.Admin;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -73,10 +74,16 @@ app.UseExceptionHandler(new ExceptionHandlerOptions
         exception is BadHttpRequestException badRequest ? badRequest.StatusCode : StatusCodes.Status500InternalServerError,
 });
 app.UseStatusCodePages();
-// Locally the container is created on startup. In Azure, Terraform creates it.
-if (app.Environment.IsDevelopment())
+// Locally the app prepares its own dependencies on startup: database migrations, the
+// receipts container and four test users. In Azure, Terraform and the deployment do this.
+// Tests that break a dependency on purpose switch it off with LocalSetup:Enabled=false.
+if (app.Environment.IsDevelopment() && app.Configuration.GetValue("LocalSetup:Enabled", true))
 {
     await app.Services.GetRequiredService<BlobContainerClient>().CreateIfNotExistsAsync();
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<ClaimsDbContext>();
+    await db.Database.MigrateAsync();
+    await DevSeed.AddMissingUsersAsync(db);
 }
 
 app.UseAuthentication();
@@ -108,4 +115,5 @@ app.MapGet("/me", (ClaimsPrincipal user) => new
 app.MapClaimEndpoints();
 app.MapWorkflowEndpoints();
 app.MapReceiptEndpoints();
+app.MapAdminEndpoints();
 app.Run();
