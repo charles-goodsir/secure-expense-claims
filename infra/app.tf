@@ -1,7 +1,7 @@
 locals {
   # The image Trivy scanned and CI pushed, pinned by digest. A tag can be moved to point at
   # different content; a digest can't. Bump this in a PR to deploy a new build.
-  api_image = "ghcr.io/charles-goodsir/expense-claims-api@sha256:58cbf3466c110039d718709bc54e26ac46d9f0b2aad5e0f636efce89454fdd79"
+  api_image = "ghcr.io/charles-goodsir/expense-claims-api@sha256:993abbe441e1acd1282cde2d04b59ea5f3758efcd81ce1ae7248f129f0e2ec00"
 }
 
 resource "azurerm_postgresql_flexible_server_database" "claims" {
@@ -71,10 +71,11 @@ resource "azurerm_container_app" "api" {
         name  = "ManagedIdentity__ClientId"
         value = azurerm_user_assigned_identity.api.client_id
       }
-      # No password in it: the managed identity's token is the password.
+      # No password in it: the managed identity's token is the password. GSS (Kerberos) is
+      # off because nothing here uses it and the chiseled image has no Kerberos library.
       env {
         name  = "ConnectionStrings__Claims"
-        value = "Host=${azurerm_postgresql_flexible_server.main.fqdn};Database=${azurerm_postgresql_flexible_server_database.claims.name};Username=${azurerm_user_assigned_identity.api.name};SSL Mode=VerifyFull"
+        value = "Host=${azurerm_postgresql_flexible_server.main.fqdn};Database=${azurerm_postgresql_flexible_server_database.claims.name};Username=${azurerm_user_assigned_identity.api.name};SSL Mode=VerifyFull;Gss Encryption Mode=Disable"
       }
       env {
         name  = "Receipts__ContainerUri"
@@ -90,6 +91,56 @@ resource "azurerm_container_app" "api" {
     traffic_weight {
       latest_revision = true
       percentage      = 100
+    }
+  }
+}
+
+# Applies migrations and creates the API's database role with DML-only grants, signed in as
+# the migrations identity (the server's Entra admin). Started by hand after each apply.
+resource "azurerm_container_app_job" "migrate" {
+  name                         = "caj-expense-claims-migrate"
+  location                     = data.azurerm_resource_group.main.location
+  resource_group_name          = data.azurerm_resource_group.main.name
+  container_app_environment_id = azurerm_container_app_environment.main.id
+  workload_profile_name        = "Consumption"
+  replica_timeout_in_seconds   = 600
+  # A failed migration needs a person to look at it, not an automatic second attempt.
+  replica_retry_limit = 0
+
+  manual_trigger_config {
+    parallelism              = 1
+    replica_completion_count = 1
+  }
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.migrations.id]
+  }
+
+  template {
+    container {
+      name   = "migrate"
+      image  = local.api_image
+      cpu    = 0.25
+      memory = "0.5Gi"
+      args   = ["--migrate"]
+
+      env {
+        name  = "ManagedIdentity__ClientId"
+        value = azurerm_user_assigned_identity.migrations.client_id
+      }
+      env {
+        name  = "ConnectionStrings__Claims"
+        value = "Host=${azurerm_postgresql_flexible_server.main.fqdn};Database=${azurerm_postgresql_flexible_server_database.claims.name};Username=${azurerm_user_assigned_identity.migrations.name};SSL Mode=VerifyFull;Gss Encryption Mode=Disable"
+      }
+      env {
+        name  = "ApiRole__Name"
+        value = azurerm_user_assigned_identity.api.name
+      }
+      env {
+        name  = "ApiRole__ObjectId"
+        value = azurerm_user_assigned_identity.api.principal_id
+      }
     }
   }
 }
