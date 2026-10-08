@@ -9,6 +9,11 @@ resource "azurerm_postgresql_flexible_server_database" "claims" {
   server_id = azurerm_postgresql_flexible_server.main.id
   charset   = "UTF8"
   collation = "en_US.utf8"
+
+  # Deleting this has taken over the default 30 minutes during destroy
+  timeouts {
+    delete = "60m"
+  }
 }
 
 # The API's own identity. It gets blob access here and DML-only database rights from the

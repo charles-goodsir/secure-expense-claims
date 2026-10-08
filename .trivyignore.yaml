@@ -1,8 +1,0 @@
-vulnerabilities:
-  - id: CVE-2026-84782
-    statement: >-
-      OpenSSL in the aspnet:10.0-noble-chiseled base image. Ubuntu has the fix
-      (3.0.13-0ubuntu3.16) but Microsoft hasn't rebuilt the image yet, and
-      chiseled images have no package manager to upgrade it. Recheck when this
-      expires; drop it once the rebuilt image scans clean.
-    expired_at: 2026-10-16
