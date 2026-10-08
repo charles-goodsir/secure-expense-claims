@@ -31,6 +31,9 @@ resource "azurerm_subnet" "postgres" {
   resource_group_name  = data.azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
   address_prefixes     = ["10.20.1.0/28"]
+  # Azure adds this when the Flexible Server is created (backups and WAL go to Storage).
+  # Declared here so plans don't try to remove it.
+  service_endpoints = ["Microsoft.Storage"]
 
   delegation {
     name = "postgres"
