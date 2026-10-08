@@ -17,6 +17,8 @@ data "azurerm_resource_group" "main" {
   name = "rg-expense-claims"
 }
 
+data "azurerm_client_config" "current" {}
+
 resource "azurerm_log_analytics_workspace" "main" {
   name                = "log-expense-claims"
   location            = data.azurerm_resource_group.main.location
