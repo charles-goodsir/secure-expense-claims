@@ -59,4 +59,9 @@ resource "azurerm_postgresql_flexible_server_active_directory_administrator" "mi
   object_id           = azurerm_user_assigned_identity.migrations.principal_id
   principal_name      = azurerm_user_assigned_identity.migrations.name
   principal_type      = "ServicePrincipal"
+
+  # Deleting this has taken over the default 30 minutes during destroy.
+  timeouts {
+    delete = "60m"
+  }
 }
