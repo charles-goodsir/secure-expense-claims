@@ -10,7 +10,7 @@ Done once by hand with the az CLI on 2026-10-08. Everything after this is Terraf
 | State container    | `tfstatecg21836/expense-claims`                                      | Separate from the landing zone's `tfstate` container                                                                                                                                                                                             |
 | State blob         | `expense-claims.tfstate`, empty                                      | Seeded once by running `terraform init` with a temporary self-assigned Storage Blob Data Contributor role on the container, removed afterwards                                                                                                   |
 | Identity           | `id-expense-claims-plan`                                             | Reader on the RG, Blob Data Reader on the state container. Federated to `repo:charles-goodsir@175671216/secure-expense-claims@1399313160:pull_request` and `repo:charles-goodsir@175671216/secure-expense-claims@1399313160:ref:refs/heads/main` |
-| Identity           | `id-expense-claims-deploy`                                           | Contributor on the RG, blob data on the state container. Federated to `repo:charles-goodsir@175671216/secure-expense-claims@1399313160:environment:azure`                                                                                        |
+| Identity           | `id-expense-claims-deploy`                                           | Contributor on the RG; Role Based Access Control Administrator on the RG, conditioned to assign or remove Storage Blob Data Contributor only; blob data on the state container. Federated to `repo:charles-goodsir@175671216/secure-expense-claims@1399313160:environment:azure` |
 | GitHub environment | `azure`                                                              | Required reviewer, `main` only                                                                                                                                                                                                                   |
 | Provider           | `Microsoft.App`                                                      | Registered for Container Apps                                                                                                                                                                                                                    |
 
@@ -22,7 +22,7 @@ No client secrets exist. GitHub holds only IDs, as repository variables: `AZURE_
 az identity federated-credential list -g rg-expense-claims-identity --identity-name id-expense-claims-deploy --query "[].subject" -o tsv
 ```
 
-Each identity should have exactly two role assignments: Reader or Contributor on `rg-expense-claims`, and a Storage Blob Data role on the `expense-claims` state container (Reader for plan, Contributor for deploy). Nothing at subscription scope.
+The plan identity should have two role assignments: Reader on `rg-expense-claims` and Storage Blob Data Reader on the `expense-claims` state container. The deploy identity should have three: Contributor and the conditional Role Based Access Control Administrator on `rg-expense-claims`, and Storage Blob Data Contributor on the state container. Nothing at subscription scope.
 
 ## Known shortcuts
 

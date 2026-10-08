@@ -13,7 +13,7 @@ resource "azurerm_private_dns_zone_virtual_network_link" "postgres" {
 }
 
 # The Entra admin on the server. The migration job runs as this identity in step 8, so it
-# owns the schema; the app identity gets DML only (I5).
+# owns the schema; the app identity gets DML only (E5).
 resource "azurerm_user_assigned_identity" "migrations" {
   name                = "id-expense-claims-migrations"
   location            = data.azurerm_resource_group.main.location
@@ -34,7 +34,7 @@ resource "azurerm_postgresql_flexible_server" "main" {
   private_dns_zone_id           = azurerm_private_dns_zone.postgres.id
   public_network_access_enabled = false
 
-  # Entra only: no password exists to leak or rotate (S3).
+  # Entra only: no password exists to leak or rotate (I5).
   authentication {
     active_directory_auth_enabled = true
     password_auth_enabled         = false
