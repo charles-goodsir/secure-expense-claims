@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace ExpenseClaims.Api.Data;
 
@@ -7,15 +8,19 @@ namespace ExpenseClaims.Api.Data;
 // rights granted here (E5).
 public static class DatabaseSetup
 {
-    public static async Task RunAsync(ClaimsDbContext db, string apiRole, string apiObjectId)
+    public static async Task RunAsync(
+        ClaimsDbContext db, NpgsqlDataSource postgresDatabase, string apiRole, string apiObjectId)
     {
         await db.Database.MigrateAsync();
-        // Azure-only function. It maps the role to the identity's object ID, which is unique,
-        // where a display name might not be.
-        await db.Database.ExecuteSqlAsync($"""
-            SELECT pgaadauth_create_principal_with_oid({apiRole}, {apiObjectId}, 'service', false, false)
-            WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = {apiRole})
-            """);
+        // Azure-only function, installed in the postgres database only. It maps the role to the
+        // identity's object ID, which is unique, where a display name might not be.
+        await using var createRole = postgresDatabase.CreateCommand("""
+                SELECT pgaadauth_create_principal_with_oid($1, $2, 'service', false, false)
+                WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = $1)
+                """);
+        createRole.Parameters.Add(new() { Value = apiRole });
+        createRole.Parameters.Add(new() { Value = apiObjectId });
+        await createRole.ExecuteNonQueryAsync();
         await GrantApiAccessAsync(db, apiRole);
     }
 

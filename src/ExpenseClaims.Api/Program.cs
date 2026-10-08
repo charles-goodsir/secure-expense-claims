@@ -12,6 +12,7 @@ using System.Threading.RateLimiting;
 using ExpenseClaims.Api.Admin;
 using Azure.Core;
 using Azure.Identity;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,15 +30,17 @@ builder.Services.AddDbContext<ClaimsDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Claims"), npgsql =>
     {
         if (azureCredential is null) return;
-        // An Entra token is the Postgres password. Tokens last about an hour, so Npgsql
-        // fetches a fresh one every 55 minutes, and retries after 5 seconds if that fails.
+        // Tokens last about an hour, so Npgsql fetches a fresh one every 55 minutes, and
+        // retries after 5 seconds if that fails.
         npgsql.ConfigureDataSource(dataSource => dataSource.UsePeriodicPasswordProvider(
-            async (_, cancellationToken) => (await azureCredential.GetTokenAsync(
-                new TokenRequestContext(["https://ossrdbms-aad.database.windows.net/.default"]),
-                cancellationToken)).Token,
-            TimeSpan.FromMinutes(55),
-            TimeSpan.FromSeconds(5)));
+            GetDatabaseTokenAsync, TimeSpan.FromMinutes(55), TimeSpan.FromSeconds(5)));
     }));
+
+// An Entra token is the Postgres password.
+async ValueTask<string> GetDatabaseTokenAsync(NpgsqlConnectionStringBuilder _, CancellationToken cancellationToken) =>
+    (await azureCredential!.GetTokenAsync(
+        new TokenRequestContext(["https://ossrdbms-aad.database.windows.net/.default"]),
+        cancellationToken)).Token;
 
 builder.Services.AddHealthChecks().AddDbContextCheck<ClaimsDbContext>(tags: ["ready"]);
 
@@ -92,9 +95,19 @@ var app = builder.Build();
 // The migration job in Azure: apply migrations, set up the API's database role, then exit.
 if (args.Contains("--migrate"))
 {
+    // Azure keeps its Entra role functions in the postgres database, so creating the API's
+    // role needs a second connection there, signed in the same way.
+    var postgresDatabase = new NpgsqlConnectionStringBuilder(app.Configuration.GetConnectionString("Claims"))
+    {
+        Database = "postgres",
+    };
+    await using var postgres = new NpgsqlDataSourceBuilder(postgresDatabase.ConnectionString)
+        .UsePeriodicPasswordProvider(GetDatabaseTokenAsync, TimeSpan.FromMinutes(55), TimeSpan.FromSeconds(5))
+        .Build();
     using var scope = app.Services.CreateScope();
     await DatabaseSetup.RunAsync(
         scope.ServiceProvider.GetRequiredService<ClaimsDbContext>(),
+        postgres,
         app.Configuration["ApiRole:Name"]!,
         app.Configuration["ApiRole:ObjectId"]!);
     return;

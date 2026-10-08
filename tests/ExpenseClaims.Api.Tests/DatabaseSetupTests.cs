@@ -34,4 +34,34 @@ public class DatabaseSetupTests(ApiFactory factory) : IClassFixture<ApiFactory>
             db.Database.ExecuteSqlRawAsync("""ALTER TABLE "Claims" ADD COLUMN "Sneaky" int"""));
         Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, alter.SqlState);
     }
+
+    [Fact]
+    public async Task Setup_creates_the_api_role_through_the_second_connection_and_is_safe_to_rerun()
+    {
+        await using var db = factory.NewDbContext();
+        // In Azure the role function lives in a different database from the app's tables.
+        await db.Database.ExecuteSqlRawAsync("CREATE DATABASE role_functions");
+        var roleFunctionsDb = new NpgsqlConnectionStringBuilder(db.Database.GetConnectionString())
+        {
+            Database = "role_functions",
+        };
+        await using var roleFunctions = NpgsqlDataSource.Create(roleFunctionsDb.ConnectionString);
+        // Stands in for Azure's function, which doesn't exist outside Azure.
+        await using (var fake = roleFunctions.CreateCommand("""
+            CREATE FUNCTION pgaadauth_create_principal_with_oid(role text, oid text, kind text, admin bool, mfa bool)
+            RETURNS text LANGUAGE plpgsql AS $$ BEGIN EXECUTE format('CREATE ROLE %I', role); RETURN 'ok'; END $$
+            """))
+        {
+            await fake.ExecuteNonQueryAsync();
+        }
+
+        // The job runs after every apply, so a second run must not fail on the existing role.
+        await DatabaseSetup.RunAsync(db, roleFunctions, "api_setup_test", "00000000-0000-0000-0000-000000000000");
+        await DatabaseSetup.RunAsync(db, roleFunctions, "api_setup_test", "00000000-0000-0000-0000-000000000000");
+
+        var roleExists = await db.Database
+            .SqlQuery<bool>($"SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'api_setup_test') AS \"Value\"")
+            .SingleAsync();
+        Assert.True(roleExists);
+    }
 }
