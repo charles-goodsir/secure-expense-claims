@@ -1,8 +1,8 @@
 locals {
   # The image Trivy scanned and CI pushed, pinned by digest. A tag can be moved to point at
   # different content; a digest can't. Bump this in a PR to deploy a new build.
-  api_image = "ghcr.io/charles-goodsir/expense-claims-api@sha256:993abbe441e1acd1282cde2d04b59ea5f3758efcd81ce1ae7248f129f0e2ec00"
-}
+  api_image = "ghcr.io/charles-goodsir/expense-claims-api@sha256:63031b2b43286436123175ac5dd3a8e8d79659ba7b5cf18b3e934c0fe8d0b0e1"
+  }
 
 resource "azurerm_postgresql_flexible_server_database" "claims" {
   name      = "expenseclaims"
