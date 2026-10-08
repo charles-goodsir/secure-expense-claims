@@ -1,0 +1,51 @@
+{
+  "api": {
+    "requestedAccessTokenVersion": 2,
+    "oauth2PermissionScopes": [
+      {
+        "id": "47554bfc-3fa8-4955-9582-22209851e67a",
+        "value": "Claims.ReadWrite",
+        "type": "User",
+        "isEnabled": true,
+        "adminConsentDisplayName": "Use the expense claims API",
+        "adminConsentDescription": "Lets the web app call the expense claims API as the signed-in user.",
+        "userConsentDisplayName": "Use the expense claims API",
+        "userConsentDescription": "Lets the web app call the expense claims API as you."
+      }
+    ]
+  },
+  "appRoles": [
+    {
+      "id": "3e198377-1c3e-46e8-9906-8ad858b60b24",
+      "value": "Employee",
+      "displayName": "Employee",
+      "description": "Submits claims",
+      "allowedMemberTypes": ["User"],
+      "isEnabled": true
+    },
+    {
+      "id": "738606e7-ff63-4d91-9fcb-2bedcd3feae0",
+      "value": "Manager",
+      "displayName": "Manager",
+      "description": "Approves their reports' claims",
+      "allowedMemberTypes": ["User"],
+      "isEnabled": true
+    },
+    {
+      "id": "c4bd5e89-a789-4313-aeb9-4c324a04ceb2",
+      "value": "Finance",
+      "displayName": "Finance",
+      "description": "Pays approved claims",
+      "allowedMemberTypes": ["User"],
+      "isEnabled": true
+    },
+    {
+      "id": "cde51986-115a-4757-a014-77c6a47c430b",
+      "value": "Admin",
+      "displayName": "Admin",
+      "description": "Manages users; no workflow rights",
+      "allowedMemberTypes": ["User"],
+      "isEnabled": true
+    }
+  ]
+}
