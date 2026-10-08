@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using ExpenseClaims.Api.Auth;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using System.Text.Json.Serialization;
 using ExpenseClaims.Api.Claims;
 using Azure.Storage.Blobs;
@@ -44,8 +45,9 @@ async ValueTask<string> GetDatabaseTokenAsync(NpgsqlConnectionStringBuilder _, C
 
 builder.Services.AddHealthChecks().AddDbContextCheck<ClaimsDbContext>(tags: ["ready"]);
 
-// Development uses the stub sign-in. Every other environment uses JWT bearer tokens, which
-// reject every request until Entra ID is configured in Phase 3.
+// Development uses the stub sign-in. Every other environment takes Entra ID access tokens.
+// Authority and ValidAudiences come from Authentication:Schemes:Bearer in configuration;
+// with neither set, every request is rejected (threat S1).
 if (builder.Environment.IsDevelopment())
 {
     builder.Services.AddAuthentication(DevAuthHandler.SchemeName)
@@ -53,7 +55,24 @@ if (builder.Environment.IsDevelopment())
 }
 else
 {
-    builder.Services.AddAuthentication().AddJwtBearer();
+    builder.Services.AddAuthentication().AddJwtBearer(options => options.Events = new JwtBearerEvents
+    {
+        // The default mapping makes "sub" the user ID, but "sub" is different for every app
+        // the user signs in to. "oid" is the user's one Entra object ID, and it's User.Id.
+        OnTokenValidated = context =>
+        {
+            var identity = (ClaimsIdentity)context.Principal!.Identity!;
+            var objectId = identity.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier");
+            if (objectId is null)
+            {
+                context.Fail("Token has no oid claim.");
+                return Task.CompletedTask;
+            }
+            identity.RemoveClaim(identity.FindFirst(ClaimTypes.NameIdentifier));
+            identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, objectId.Value));
+            return Task.CompletedTask;
+        },
+    });
 }
 builder.Services.AddAuthorization();
 // Errors come back as RFC 9457 problem details: a status, a title and a trace ID to quote
