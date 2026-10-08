@@ -88,6 +88,18 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
+
+// The migration job in Azure: apply migrations, set up the API's database role, then exit.
+if (args.Contains("--migrate"))
+{
+    using var scope = app.Services.CreateScope();
+    await DatabaseSetup.RunAsync(
+        scope.ServiceProvider.GetRequiredService<ClaimsDbContext>(),
+        app.Configuration["ApiRole:Name"]!,
+        app.Configuration["ApiRole:ObjectId"]!);
+    return;
+}
+
 // First in the pipeline, so it catches exceptions from everything after it. Used in every
 // environment, including Development, so what testers see is what production sends.
 app.UseExceptionHandler(new ExceptionHandlerOptions
