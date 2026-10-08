@@ -10,6 +10,8 @@ provider "azurerm" {
   # The pipeline identities only have rights on one resource group, so they can't register
   # resource providers at subscription scope. Providers were registered once in the bootstrap.
   resource_provider_registrations = "none"
+  # Shared keys are disabled on the receipts account, so storage calls must use Entra tokens.
+  storage_use_azuread = true
 }
 
 # Created by hand in the bootstrap (docs/bootstrap.md), so Terraform reads it instead of owning it.
