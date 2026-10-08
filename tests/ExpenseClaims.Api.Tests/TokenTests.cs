@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
@@ -37,14 +38,17 @@ public class TokenTests(ApiFactory factory) : IClassFixture<ApiFactory>
         DateTime? expires = null,
         SecurityKey? key = null,
         bool includeOid = true,
-        string oid = "0199f0a4-0000-7000-8000-000000000001")
+        string oid = "0199f0a4-0000-7000-8000-000000000001",
+        string? userName = "alice@example.com")
     {
         var claims = new Dictionary<string, object>
         {
             ["sub"] = "pairwise-subject-not-the-user-id",
             ["roles"] = new[] { "Employee", "Manager" },
+            ["name"] = "Alice Example",
         };
         if (includeOid) claims["oid"] = oid;
+        if (userName is not null) claims["preferred_username"] = userName;
         var expiry = expires ?? DateTime.UtcNow.AddHours(1);
         return new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
         {
@@ -121,4 +125,22 @@ public class TokenTests(ApiFactory factory) : IClassFixture<ApiFactory>
     [Fact]
     public async Task Token_without_an_oid_is_rejected() =>
         Assert.Equal(HttpStatusCode.Unauthorized, (await Me(Token(includeOid: false))).StatusCode);
+
+    [Fact]
+    public async Task Token_without_a_user_name_is_rejected() =>
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Me(Token(userName: null))).StatusCode);
+
+    // Entra already decided this person may sign in, so their first request creates them.
+    [Fact]
+    public async Task First_sign_in_creates_the_user()
+    {
+        var oid = Guid.NewGuid();
+
+        Assert.Equal(HttpStatusCode.OK, (await Me(Token(oid: oid.ToString(), userName: $"{oid}@example.com"))).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await Me(Token(oid: oid.ToString(), userName: $"{oid}@example.com"))).StatusCode);
+
+        var user = await factory.NewDbContext().Users.SingleAsync(u => u.Id == oid);
+        Assert.Equal("Alice Example", user.DisplayName);
+        Assert.Equal($"{oid}@example.com", user.Email);
+    }
 }

@@ -59,18 +59,34 @@ else
     {
         // The default mapping makes "sub" the user ID, but "sub" is different for every app
         // the user signs in to. "oid" is the user's one Entra object ID, and it's User.Id.
-        OnTokenValidated = context =>
+        OnTokenValidated = async context =>
         {
             var identity = (ClaimsIdentity)context.Principal!.Identity!;
             var objectId = identity.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier");
-            if (objectId is null)
+            var userName = identity.FindFirst("preferred_username");
+            if (objectId is null || userName is null)
             {
-                context.Fail("Token has no oid claim.");
-                return Task.CompletedTask;
+                context.Fail("Token has no oid or preferred_username claim.");
+                return;
             }
             identity.RemoveClaim(identity.FindFirst(ClaimTypes.NameIdentifier));
             identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, objectId.Value));
-            return Task.CompletedTask;
+
+            // Entra decides who may sign in, so a user's first valid token creates their
+            // row. Managers are then set by an Admin, which is audited (threat R2).
+            // ponytail: a duplicate first request at the same moment gets a 500; fine at this scale.
+            var id = Guid.Parse(objectId.Value);
+            var db = context.HttpContext.RequestServices.GetRequiredService<ClaimsDbContext>();
+            if (!await db.Users.AnyAsync(u => u.Id == id))
+            {
+                db.Users.Add(new ExpenseClaims.Api.Domain.User
+                {
+                    Id = id,
+                    DisplayName = identity.FindFirst("name")?.Value ?? userName.Value,
+                    Email = userName.Value,
+                });
+                await db.SaveChangesAsync();
+            }
         },
     });
 }
