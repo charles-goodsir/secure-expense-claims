@@ -10,12 +10,34 @@ using Azure.Storage.Blobs;
 using ExpenseClaims.Api.Receipts;
 using System.Threading.RateLimiting;
 using ExpenseClaims.Api.Admin;
+using Azure.Core;
+using Azure.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
+
+// In Azure the app signs in to Postgres and Storage as its user-assigned managed identity,
+// so no password or key exists anywhere (S3). Locally this is unset and the connection
+// strings carry the Compose password and the Azurite key instead.
+var managedIdentityClientId = builder.Configuration["ManagedIdentity:ClientId"];
+TokenCredential? azureCredential = managedIdentityClientId is null
+    ? null
+    : new ManagedIdentityCredential(ManagedIdentityId.FromUserAssignedClientId(managedIdentityClientId));
+
 builder.Services.AddDbContext<ClaimsDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("Claims")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("Claims"), npgsql =>
+    {
+        if (azureCredential is null) return;
+        // An Entra token is the Postgres password. Tokens last about an hour, so Npgsql
+        // fetches a fresh one every 55 minutes, and retries after 5 seconds if that fails.
+        npgsql.ConfigureDataSource(dataSource => dataSource.UsePeriodicPasswordProvider(
+            async (_, cancellationToken) => (await azureCredential.GetTokenAsync(
+                new TokenRequestContext(["https://ossrdbms-aad.database.windows.net/.default"]),
+                cancellationToken)).Token,
+            TimeSpan.FromMinutes(55),
+            TimeSpan.FromSeconds(5)));
+    }));
 
 builder.Services.AddHealthChecks().AddDbContextCheck<ClaimsDbContext>(tags: ["ready"]);
 
@@ -41,9 +63,11 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 
 
 
-// Receipts live in Blob Storage: Azurite locally, Azure Storage with managed identity in Phase 2.
-builder.Services.AddSingleton(_ =>
-    new BlobContainerClient(builder.Configuration.GetConnectionString("Receipts"), "receipts"));
+// Receipts live in Blob Storage: Azurite locally with a connection string, Azure Storage in
+// Azure with the managed identity. There the setting is the container's URL, not a secret.
+builder.Services.AddSingleton(_ => azureCredential is null
+    ? new BlobContainerClient(builder.Configuration.GetConnectionString("Receipts"), "receipts")
+    : new BlobContainerClient(new Uri(builder.Configuration["Receipts:ContainerUri"]!), azureCredential));
 // Each signed-in user gets their own budget of requests per minute, so one account can't
 // flood the API for everyone else. Anonymous callers are counted by IP address (threat D2).
 var requestsPerMinute = builder.Configuration.GetValue("RateLimit:RequestsPerMinute", 100);
