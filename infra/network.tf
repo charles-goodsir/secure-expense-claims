@@ -12,6 +12,8 @@ resource "azurerm_subnet" "apps" {
   resource_group_name  = data.azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
   address_prefixes     = ["10.20.0.0/24"]
+  # Lets the storage firewall recognise traffic from this subnet (I6, cheap version).
+  service_endpoints = ["Microsoft.Storage"]
 
   delegation {
     name = "container-apps"
