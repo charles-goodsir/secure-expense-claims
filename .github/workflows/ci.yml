@@ -168,7 +168,7 @@ jobs:
       id-token: write
     env:
       ARM_USE_OIDC: true
-      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID_DEPLOY }}
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID_PLAN }}
       ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
       ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
     defaults:
