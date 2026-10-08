@@ -138,17 +138,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Install Terraform (checksum verified)
-        run: |
-          set -euo pipefail
-          VERSION=1.16.5
-          BASE_URL=https://releases.hashicorp.com/terraform/${VERSION}
-          cd "$RUNNER_TEMP"
-          curl -sSfLO "${BASE_URL}/terraform_${VERSION}_linux_amd64.zip"
-          curl -sSfLO "${BASE_URL}/terraform_${VERSION}_SHA256SUMS"
-          grep "linux_amd64.zip$" "terraform_${VERSION}_SHA256SUMS" | sha256sum -c -
-          unzip -q "terraform_${VERSION}_linux_amd64.zip" terraform
-          sudo mv terraform /usr/local/bin/
+      - uses: ./.github/actions/setup-terraform
       - name: Install Trivy (checksum verified)
         run: |
           set -euo pipefail
@@ -188,17 +178,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Install Terraform (checksum verified)
-        run: |
-          set -euo pipefail
-          VERSION=1.16.5
-          BASE_URL=https://releases.hashicorp.com/terraform/${VERSION}
-          cd "$RUNNER_TEMP"
-          curl -sSfLO "${BASE_URL}/terraform_${VERSION}_linux_amd64.zip"
-          curl -sSfLO "${BASE_URL}/terraform_${VERSION}_SHA256SUMS"
-          grep "linux_amd64.zip$" "terraform_${VERSION}_SHA256SUMS" | sha256sum -c -
-          unzip -q "terraform_${VERSION}_linux_amd64.zip" terraform
-          sudo mv terraform /usr/local/bin/
+      - uses: ./.github/actions/setup-terraform
       - run: terraform init -lockfile=readonly -input=false
       # A PR plan only reads state, so it doesn't take the lock. The plan identity then only
       # needs read access to state, and a cancelled run can't leave a stale lock behind.

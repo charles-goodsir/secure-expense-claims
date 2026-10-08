@@ -1,5 +1,11 @@
 provider "azurerm" {
-  features {}
+  features {
+    log_analytics_workspace {
+      # The environment is destroyed after every session. Without this, a deleted workspace
+      # sits soft-deleted for 14 days and the next apply has to recover it.
+      permanently_delete_on_destroy = true
+    }
+  }
 
   # The pipeline identities only have rights on one resource group, so they can't register
   # resource providers at subscription scope. Providers were registered once in the bootstrap.

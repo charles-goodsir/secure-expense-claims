@@ -1,0 +1,18 @@
+# Installs a pinned Terraform release after checking it against HashiCorp's checksum file.
+# Local, so it's pinned by this repo's own commit.
+name: Set up Terraform
+description: Install Terraform (checksum verified)
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        set -euo pipefail
+        VERSION=1.16.5
+        BASE_URL=https://releases.hashicorp.com/terraform/${VERSION}
+        cd "$RUNNER_TEMP"
+        curl -sSfLO "${BASE_URL}/terraform_${VERSION}_linux_amd64.zip"
+        curl -sSfLO "${BASE_URL}/terraform_${VERSION}_SHA256SUMS"
+        grep "linux_amd64.zip$" "terraform_${VERSION}_SHA256SUMS" | sha256sum -c -
+        unzip -q "terraform_${VERSION}_linux_amd64.zip" terraform
+        sudo mv terraform /usr/local/bin/
