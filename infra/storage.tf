@@ -10,7 +10,7 @@ resource "azurerm_storage_account" "receipts" {
   min_tls_version                 = "TLS1_2"
   https_traffic_only_enabled      = true
   allow_nested_items_to_be_public = false
-  # No account keys or SAS: the app reaches blobs with its managed identity only (S3).
+  # No account keys or SAS: the app reaches blobs with its managed identity only (I5).
   shared_access_key_enabled = false
 
   network_rules {

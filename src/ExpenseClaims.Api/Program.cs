@@ -18,7 +18,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
 
 // In Azure the app signs in to Postgres and Storage as its user-assigned managed identity,
-// so no password or key exists anywhere (S3). Locally this is unset and the connection
+// so no password or key exists anywhere (I5). Locally this is unset and the connection
 // strings carry the Compose password and the Azurite key instead.
 var managedIdentityClientId = builder.Configuration["ManagedIdentity:ClientId"];
 TokenCredential? azureCredential = managedIdentityClientId is null
