@@ -1,0 +1,62 @@
+# Compares Azure with infra/ every week and goes red if they differ (T5). Plan only, with the
+# read-only identity: it never changes anything and never waits for approval.
+name: Drift check
+
+on:
+  schedule:
+    # Cron is UTC: Sunday 17:00 UTC is Monday 06:00 in New Zealand (NZDT).
+    - cron: '0 17 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Shares the Infra workflow's group, so it never plans halfway through an apply or destroy.
+concurrency:
+  group: infra
+  cancel-in-progress: false
+
+jobs:
+  drift:
+    name: Drift check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      ARM_USE_OIDC: true
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID_PLAN }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-terraform
+      - run: terraform init -lockfile=readonly -input=false
+      - name: Check for drift
+        run: |
+          set -euo pipefail
+          # The environment is destroyed between sessions. With nothing in state there is
+          # nothing to compare, and a plan would just list everything as missing.
+          if [ -z "$(terraform state list)" ]; then
+            echo "Environment is torn down, so there's nothing to compare." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # -detailed-exitcode: 0 means Azure matches the code, 1 an error, 2 drift.
+          # Both 1 and 2 fail the run.
+          set +e
+          terraform plan -detailed-exitcode -lock=false -input=false -no-color > plan.txt
+          code=$?
+          set -e
+          cat plan.txt
+          if [ "$code" -eq 2 ]; then
+            {
+              echo "## Drift detected"
+              grep -E '^  # |^Plan:' plan.txt
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit "$code"
