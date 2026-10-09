@@ -32,7 +32,11 @@ Container Apps and jobs must not hold secrets: the plan identity can list them. 
 ## Known shortcuts
 
 - PR plans run with `-lock=false`, so the plan identity only needs read access to state. A PR branch can't write to state, and two plans at once can't corrupt anything because neither writes.
-- Cost: the environment is destroyed at the end of every work session and rebuilt with `apply` at the start. Nothing runs while I'm not working on it.
+- Cost: the environment is destroyed at the end of every work session and rebuilt at the start. Nothing runs while I'm not working on it. Each session:
+  1. Infra workflow: apply. Then start `caj-expense-claims-migrate` and wait for Succeeded.
+  2. Add the Container App's Application Url to `expense-claims-web` under **Single-page application** (not Web).
+  3. Each test user signs in once; Adam sets Alice's and Fiona's manager to Manny.
+  4. At the end: Infra workflow: destroy, then remove the redirect URI.
 
 ## Gotcha
 

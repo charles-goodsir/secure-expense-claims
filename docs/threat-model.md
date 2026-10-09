@@ -1,8 +1,8 @@
 # Threat model
 
 STRIDE model for Secure Expense Claims, written on 1 October 2026 before any app code.
-Each threat names the control I plan to use and the phase it lands in. I'll update the
-Status column as phases finish.
+Each threat names the control I plan to use and the phase it lands in. What each control
+was tested against, and what it found, is recorded under the results sections at the end.
 
 ## What the app does
 
@@ -89,4 +89,55 @@ an audit record.
 ## Out of scope
 
 - Payments. "Mark paid" records that finance paid; there's no bank integration.
-- The Entra ID tenant's own security (MFA, conditional access). I'll note it as a production gap.
+- The Entra ID tenant's own security. The tenant has security defaults on, so every test user has to register for MFA. Conditional access needs a paid licence and isn't used.
+
+## Phase 3 results: Entra ID and attacking access control
+
+`scripts/attack.sh` runs 28 attacks against the deployed app using real Entra ID tokens for
+the four test users, and fails if any of them gets through. The run from 9 October 2026 is
+in `docs/phase3-attack-results.txt`: all 28 were refused. I tested the script itself by
+removing the ownership check from the claim read endpoint, and it reported the IDOR.
+
+| Threat | Attacked with                                                                                      | Result                |
+| ------ | -------------------------------------------------------------------------------------------------- | --------------------- |
+| S1     | No token; a real Entra token for Microsoft Graph; Alice's token with every role added; `alg: none` | 401 for all           |
+| S1     | Wrong audience, wrong tenant, expired, wrong key, edited payload, missing `oid` (unit tests)       | 401 for all           |
+| S2     | Dev sign-in headers sent to the API running as Production, locally and in Azure                    | 401                   |
+| I1     | Fiona reads Alice's claim by ID; compared with an ID that doesn't exist                            | 404 for both          |
+| I2     | Fiona lists and downloads receipts on Alice's unapproved claim; Alice's manager does the same      | 404; manager gets 200 |
+| E1     | Alice approves and pays; Fiona (Finance) approves; Manny calls admin endpoints                     | 403                   |
+| E2     | Manny approves Fiona's claim after she's moved to another manager, then again after she moves back | 404, then 200         |
+| E3     | Admin makes Manny his own manager; Manny approves his own claim; Fiona pays her own claim          | 400, 404, 404         |
+| E4     | Adam (Admin) approves, pays and lists claims                                                       | 403                   |
+| T1     | Edit after submit; create with `status` or `employeeId` smuggled in; pay twice                     | 409, 400, 409         |
+
+### Finding: assignment required on the wrong app
+
+I'd turned on "Assignment required" on the API's enterprise app and assumed it stopped
+unassigned users getting tokens. It didn't: my own account, with no role, got a token for
+the API through the web app, passed validation and got a row in `Users`. Entra enforces
+assignment on the app the user signs in to, which is the web app.
+
+Fixed in two layers: the web app now requires assignment (unassigned users get
+AADSTS50105), and the API rejects any token without a role before creating a user. Both
+layers were checked live.
+
+### Known gaps and shortcuts
+
+- **Sign-out doesn't revoke access tokens.** A token copied before sign-out still got a 200
+  afterwards. It stays valid until it expires (60 to 90 minutes). For production I'd use
+  shorter token lifetimes, or Continuous Access Evaluation for revocation.
+- **Tokens are in `sessionStorage`.** If the page had an XSS bug, script could read them.
+  React's escaping and the lack of any HTML injection keep that unlikely. A
+  Content-Security-Policy header would be the next control.
+- **The manager picker lists every user, not just Managers.** The database doesn't store
+  roles; Entra does. Assigning a non-manager fails safe, because approving still needs the
+  Manager role and the reporting line (E1, E2).
+- **Users are created on their first valid sign-in** and reporting lines are set by an Admin
+  each session, because the database is rebuilt every session.
+- **The SPA redirect URI is added by hand each session**, because the Container App's
+  domain changes on every rebuild, and removed at teardown. A custom domain would fix it.
+- **Client and tenant IDs are public.** They're baked into the JavaScript in a public image.
+  They're identifiers, not credentials.
+- **The dev sign-in code is still in the production bundle.** The server ignores those
+  headers outside Development (S2), so this is cosmetic.
