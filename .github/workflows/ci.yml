@@ -111,7 +111,13 @@ jobs:
           tar -xzf "trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" trivy
           sudo mv trivy /usr/local/bin/
       # The source label links each package to this repo on GitHub.
-      - run: docker build -f src/ExpenseClaims.Api/Dockerfile -t "$API_IMAGE:$GITHUB_SHA" --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" .
+      - run: >-
+          docker build -f src/ExpenseClaims.Api/Dockerfile -t "$API_IMAGE:$GITHUB_SHA"
+          --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          --build-arg VITE_ENTRA_CLIENT_ID=105aa896-ce51-4404-8807-7a6a09161a8b
+          --build-arg VITE_ENTRA_TENANT_ID=${{ vars.AZURE_TENANT_ID }}
+          --build-arg VITE_API_SCOPE=api://3ed6cc2b-9474-4e94-ac5b-30b0bd8d4046/Claims.ReadWrite
+          .
       - run: docker build -t "$WEB_IMAGE:$GITHUB_SHA" --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" web
       - run: trivy image --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed "$API_IMAGE:$GITHUB_SHA"
       # Scan the second image even if the first failed, so one run shows both.

@@ -153,6 +153,10 @@ if (args.Contains("--migrate"))
     return;
 }
 
+// The web app calls the API under /api, as it does through the Vite and nginx proxies.
+// Here nothing strips the prefix, so the API does. Paths without it still work.
+app.UsePathBase("/api");
+
 // First in the pipeline, so it catches exceptions from everything after it. Used in every
 // environment, including Development, so what testers see is what production sends.
 app.UseExceptionHandler(new ExceptionHandlerOptions
@@ -162,10 +166,16 @@ app.UseExceptionHandler(new ExceptionHandlerOptions
     StatusCodeSelector = exception =>
         exception is BadHttpRequestException badRequest ? badRequest.StatusCode : StatusCodes.Status500InternalServerError,
 });
+
 app.UseStatusCodePages();
+// In Azure the image carries the built web app in wwwroot: / serves index.html. Locally
+// there's no wwwroot, and these do nothing.
+app.UseDefaultFiles();
+app.UseStaticFiles();
 // Locally the app prepares its own dependencies on startup: database migrations, the
 // receipts container and four test users. In Azure, Terraform and the deployment do this.
 // Tests that break a dependency on purpose switch it off with LocalSetup:Enabled=false.
+
 if (app.Environment.IsDevelopment() && app.Configuration.GetValue("LocalSetup:Enabled", true))
 {
     await app.Services.GetRequiredService<BlobContainerClient>().CreateIfNotExistsAsync();
