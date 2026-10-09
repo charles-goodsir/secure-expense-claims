@@ -1,0 +1,40 @@
+Alice's claim 01a11f04-8d25-79d1-9351-137dc558e1bc, receipt 01a11f04-8f32-7d7e-a5fa-74f3fd539320
+
+== I1/I2: reading someone else's claim or receipt
+PASS  I1   Fiona reads Alice's claim by ID                                404
+PASS  I1   ...same answer as a claim that doesn't exist                   404
+PASS  I2   Fiona lists receipts on Alice's unapproved claim               404
+PASS  I2   Fiona downloads Alice's receipt                                404
+PASS  I2   Manny (her manager) downloads Alice's receipt                  200
+== E1: workflow actions without the role
+PASS  E1   Alice approves her own claim                                   403
+PASS  E1   Alice pays her own claim                                       403
+PASS  E1   Fiona (Finance, not Manager) approves Alice's claim            403
+PASS  E1   Manny calls the admin user list                                403
+PASS  E1   Manny changes his own manager                                  403
+== E4: the Admin can't use the workflow
+PASS  E4   Adam approves Alice's claim                                    403
+PASS  E4   Adam pays Alice's claim                                        403
+PASS  E4   Adam lists claims                                              403
+== T: tampering with a claim
+PASS  T1   Alice edits her claim after submitting it                      409
+PASS  T1   Alice creates a claim that's already approved                  400
+PASS  T1   Alice creates a claim as Fiona                                 400
+== E2: approving someone who isn't your report
+PASS  E2   Manny approves Fiona's claim after she moved to Alice          404
+== E3: approving or paying your own claim
+PASS  E3   Adam makes Manny his own manager                               400
+PASS  E3   Manny approves his own claim                                   404
+PASS  E3   Manny approves Fiona's claim (now his report again)            200
+PASS  E3   Fiona pays her own approved claim                              404
+== Happy path, then replay
+PASS  -    Manny approves Alice's claim                                   200
+PASS  -    Fiona pays Alice's claim                                       200
+PASS  T1   Fiona pays it a second time                                    409
+== S1: tokens that aren't Alice's real token
+PASS  S1   No token                                                       401
+PASS  S1   A real Entra token for Microsoft Graph, not this API           401
+PASS  S1   Alice's token with every role added                            401
+PASS  S1   Alice's token re-sent with alg none and no signature           401
+
+Every attack was refused.
