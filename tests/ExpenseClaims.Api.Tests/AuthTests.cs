@@ -46,4 +46,17 @@ public class AuthTests(ApiFactory factory) : IClassFixture<ApiFactory>
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    // In Azure the browser calls /api/... directly, with no proxy to strip the prefix.
+    [Fact]
+    public async Task Api_answers_under_the_api_prefix()
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, "/api/me");
+        request.Headers.Add("X-Dev-User", Guid.NewGuid().ToString());
+        request.Headers.Add("X-Dev-Roles", "Employee");
+
+        var response = await factory.CreateClient().SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
 }
