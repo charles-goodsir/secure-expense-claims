@@ -66,7 +66,12 @@ else
             var userName = identity.FindFirst("preferred_username");
             if (objectId is null || userName is null)
             {
-                context.Fail("Token has no oid or preferred_username claim.");
+                context.Fail("Token has no oid or preferred_username claim");
+                return;
+            }
+            if (!identity.HasClaim(claim => claim.Type == ClaimTypes.Role))
+            {
+                context.Fail("Token has no roles.");
                 return;
             }
             identity.RemoveClaim(identity.FindFirst(ClaimTypes.NameIdentifier));
