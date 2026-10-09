@@ -39,16 +39,18 @@ public class TokenTests(ApiFactory factory) : IClassFixture<ApiFactory>
         SecurityKey? key = null,
         bool includeOid = true,
         string oid = "0199f0a4-0000-7000-8000-000000000001",
-        string? userName = "alice@example.com")
+        string? userName = "alice@example.com",
+        string[]? roles = null)
     {
         var claims = new Dictionary<string, object>
         {
             ["sub"] = "pairwise-subject-not-the-user-id",
-            ["roles"] = new[] { "Employee", "Manager" },
             ["name"] = "Alice Example",
         };
         if (includeOid) claims["oid"] = oid;
         if (userName is not null) claims["preferred_username"] = userName;
+        roles ??= ["Employee", "Manager"];
+        if (roles.Length > 0) claims["roles"] = roles;
         var expiry = expires ?? DateTime.UtcNow.AddHours(1);
         return new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
         {
@@ -142,5 +144,17 @@ public class TokenTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var user = await factory.NewDbContext().Users.SingleAsync(u => u.Id == oid);
         Assert.Equal("Alice Example", user.DisplayName);
         Assert.Equal($"{oid}@example.com", user.Email);
+    }
+
+    // Signed in to the tenant but never assigned a role: rejected, and no Users row is made.
+    [Fact]
+    public async Task Token_without_roles_is_rejected_and_creates_no_user()
+    {
+        var oid = Guid.NewGuid();
+
+        var response = await Me(Token(oid: oid.ToString(), userName: $"{oid}@example.com", roles: []));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.False(await factory.NewDbContext().Users.AnyAsync(u => u.Id == oid));
     }
 }
