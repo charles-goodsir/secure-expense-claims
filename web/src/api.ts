@@ -1,3 +1,5 @@
+import { bearerHeader, entraEnabled } from './auth'
+
 // Development sign-in: the seeded users from the API's DevSeed, with the roles the stub
 // sign-in should give them. Entra ID replaces this in Phase 3.
 export type Identity = { id: string; name: string; roles: string[] }
@@ -55,8 +57,16 @@ export function devHeaders(identity: Identity): Record<string, string> {
   return { 'X-Dev-User': identity.id, 'X-Dev-Roles': identity.roles.join(',') }
 }
 
+// An Entra access token when Entra is configured, the dev sign-in headers otherwise.
+// identity is null only for the first /me call, which only happens with Entra.
+function authHeaders(
+  identity: Identity | null,
+): Promise<Record<string, string>> {
+  return entraEnabled ? bearerHeader() : Promise.resolve(devHeaders(identity!))
+}
+
 export async function api<T>(
-  identity: Identity,
+  identity: Identity | null,
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
@@ -67,7 +77,7 @@ export async function api<T>(
     ...init,
     headers: {
       ...(json ? { 'Content-Type': 'application/json' } : {}),
-      ...devHeaders(identity),
+      ...(await authHeaders(identity)),
       ...init.headers,
     },
   })
@@ -86,7 +96,9 @@ export async function api<T>(
 // Receipts need the sign-in headers, so a plain link won't work. This fetches the file and
 // hands it to the browser as a download, using the file name the API chose.
 export async function download(identity: Identity, path: string) {
-  const response = await fetch(`/api${path}`, { headers: devHeaders(identity) })
+  const response = await fetch(`/api${path}`, {
+    headers: await authHeaders(identity),
+  })
   if (!response.ok) {
     throw new ApiError(response.status, response.statusText)
   }
