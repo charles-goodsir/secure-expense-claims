@@ -1,7 +1,9 @@
 locals {
   # The image Trivy scanned and CI pushed, pinned by digest. A tag can be moved to point at
   # different content; a digest can't. Bump this in a PR to deploy a new build.
-  api_image = "ghcr.io/charles-goodsir/expense-claims-api@sha256:63031b2b43286436123175ac5dd3a8e8d79659ba7b5cf18b3e934c0fe8d0b0e1"
+  api_image = "ghcr.io/charles-goodsir/expense-claims-api@sha256:bcc444f6491d9206c8d49b0196df16f79e5c8f7199f296bfa6bbdcebf323ff93"
+  # The Entra app registration for the API (docs/bootstrap.md). Tokens carry it as aud.
+  api_client_id = "3ed6cc2b-9474-4e94-ac5b-30b0bd8d4046" # gitleaks:allow (client ID, not a secret)
 }
 
 resource "azurerm_postgresql_flexible_server_database" "claims" {
@@ -85,6 +87,15 @@ resource "azurerm_container_app" "api" {
       env {
         name  = "Receipts__ContainerUri"
         value = "${azurerm_storage_account.receipts.primary_blob_endpoint}${azurerm_storage_container.receipts.name}"
+      }
+      # Entra ID: where to fetch signing keys and the issuer, and which audience to accept (S1).
+      env {
+        name  = "Authentication__Schemes__Bearer__Authority"
+        value = "https://login.microsoftonline.com/${data.azurerm_client_config.current.tenant_id}/v2.0"
+      }
+      env {
+        name  = "Authentication__Schemes__Bearer__ValidAudiences__0"
+        value = local.api_client_id
       }
     }
   }
