@@ -12,9 +12,9 @@ resource "azurerm_postgresql_flexible_server_database" "claims" {
   charset   = "UTF8"
   collation = "en_US.utf8"
 
-  # Deleting this has taken over the default 30 minutes during destroy
+  # Deleting this has taken over the default 60 minutes during destroy
   timeouts {
-    delete = "60m"
+    delete = "120m"
   }
 }
 

@@ -60,8 +60,8 @@ resource "azurerm_postgresql_flexible_server_active_directory_administrator" "mi
   principal_name      = azurerm_user_assigned_identity.migrations.name
   principal_type      = "ServicePrincipal"
 
-  # Deleting this has taken over the default 30 minutes during destroy.
+  # Deleting this has taken over the default 60 minutes during destroy.
   timeouts {
-    delete = "60m"
+    delete = "120m"
   }
 }
