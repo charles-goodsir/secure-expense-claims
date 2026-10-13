@@ -24,6 +24,7 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     {
         builder.UseSetting("ConnectionStrings:Claims", _db.GetConnectionString());
         builder.UseSetting("ConnectionStrings:Receipts", _blobs.GetConnectionString());
+        builder.UseSetting("Receipts:RequireScan", "false");
     }
 
     public async Task InitializeAsync()
