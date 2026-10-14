@@ -33,6 +33,15 @@ resource "azurerm_role_assignment" "api_receipts" {
   principal_id         = azurerm_user_assigned_identity.api.principal_id
   principal_type       = "ServicePrincipal"
 }
+# Defender writes its scan result to a blob index tag, which Data Contributor can't read.
+# The role is custom and created by hand (docs/bootstrap.md): the pipeline may assign it
+# but can't define it.
+resource "azurerm_role_assignment" "api_receipt_tags" {
+  scope                = azurerm_storage_container.receipts.id
+  role_definition_name = "Storage Blob Tag Reader"
+  principal_id         = azurerm_user_assigned_identity.api.principal_id
+  principal_type       = "ServicePrincipal"
+}
 
 # A workload-profiles environment, because only those can use a delegated /24 subnet.
 # Apps on the Consumption profile still scale to zero and bill per use.
