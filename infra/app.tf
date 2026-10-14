@@ -1,7 +1,7 @@
 locals {
   # The image Trivy scanned and CI pushed, pinned by digest. A tag can be moved to point at
   # different content; a digest can't. Bump this in a PR to deploy a new build.
-  api_image = "ghcr.io/charles-goodsir/expense-claims-api@sha256:bcc444f6491d9206c8d49b0196df16f79e5c8f7199f296bfa6bbdcebf323ff93"
+  api_image = "ghcr.io/charles-goodsir/expense-claims-api@sha256:35ac866e5b5f5627979883699865bf39979d680718f4d28fb0b63526dbb1eb06"
   # The Entra app registration for the API (docs/bootstrap.md). Tokens carry it as aud.
   api_client_id = "3ed6cc2b-9474-4e94-ac5b-30b0bd8d4046" # gitleaks:allow (client ID, not a secret)
 }
