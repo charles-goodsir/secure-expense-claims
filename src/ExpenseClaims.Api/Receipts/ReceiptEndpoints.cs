@@ -12,6 +12,8 @@ namespace ExpenseClaims.Api.Receipts;
 
 public static class ReceiptEndpoints
 {
+    // Written by Defender for Storage on every blob it scans.
+    private const string ScanTag = "Malware Scanning scan result";
     public const long MaxBytes = 5 * 1024 * 1024;
     // File types are recognised by their first bytes ("magic numbers"), not by the file name
     // or the Content-Type header, which the uploader controls (threat T2).
@@ -117,7 +119,7 @@ public static class ReceiptEndpoints
             .ToListAsync();
         return Results.Ok(list);
     }
-    private static async Task<IResult> DownloadAsync(Guid id, Guid receiptId, ClaimsPrincipal user, ClaimsDbContext db, BlobContainerClient receipts)
+    private static async Task<IResult> DownloadAsync(Guid id, Guid receiptId, ClaimsPrincipal user, ClaimsDbContext db, BlobContainerClient receipts, IConfiguration config)
     {
         if (!await db.Claims.VisibleTo(user).AnyAsync(c => c.Id == id))
         {
@@ -129,10 +131,20 @@ public static class ReceiptEndpoints
             return Results.NotFound();
         }
         var extension = AllowedTypes.First(t => t.ContentType == receipt.ContentType).Extension;
-        var content = await receipts.GetBlobClient(receipt.BlobName).OpenReadAsync();
+        var blob = receipts.GetBlobClient(receipt.BlobName);
+        // Fail closed: only a blob Defender has scanned and found clean is served. A missing
+        // tag (not scanned yet) or any other result is refused (threat T2).
+        if (config.GetValue("Receipts:RequireScan", true))
+        {
+            var tags = (await blob.GetTagsAsync()).Value.Tags;
+            if (!tags.TryGetValue(ScanTag, out var result) || result != "No threats found")
+            {
+                return Results.Conflict();
+            }
+        }
+        var content = await blob.OpenReadAsync();
         // Served as a download with a name the server chose, so the browser never renders an
         // uploaded file inside the app's own origin.
-
         return Results.File(content, receipt.ContentType, $"receipt-{receipt.Id}.{extension}");
 
     }

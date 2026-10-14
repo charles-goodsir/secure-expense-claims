@@ -3,6 +3,8 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using ExpenseClaims.Api.Domain;
 using Microsoft.EntityFrameworkCore;
+using Azure.Storage.Blobs;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ExpenseClaims.Api.Tests;
 
@@ -190,5 +192,27 @@ public class ReceiptTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var response = await UploadAsync(alice, claimId, Pdf);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Download_is_refused_until_the_blob_is_tagged_clean()
+    {
+        var strict = factory.WithWebHostBuilder(b => b.UseSetting("Receipts:RequireScan", "true"));
+        var user = await AddUserAsync();
+        var client = strict.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Dev-User", user.ToString());
+        client.DefaultRequestHeaders.Add("X-Dev-Roles", "Employee");
+        var claimId = await DraftClaimAsync(client);
+        var receipt = await UploadPdfAsync(client, claimId);
+        var url = $"/claims/{claimId}/receipts/{receipt.Id}";
+
+        Assert.Equal(HttpStatusCode.Conflict, (await client.GetAsync(url)).StatusCode);
+
+        await using var db = factory.NewDbContext();
+        var blobName = (await db.Receipts.SingleAsync(r => r.Id == receipt.Id)).BlobName;
+        await strict.Services.GetRequiredService<BlobContainerClient>().GetBlobClient(blobName)
+            .SetTagsAsync(new Dictionary<string, string> { ["Malware Scanning scan result"] = "No threats found" });
+
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync(url)).StatusCode);
     }
 }
