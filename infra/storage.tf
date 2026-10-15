@@ -34,3 +34,12 @@ resource "azurerm_storage_container" "receipts" {
   storage_account_id    = azurerm_storage_account.receipts.id
   container_access_type = "private"
 }
+# Enrols this account in Defender for Storage. The subscription plan alone isn't enough:
+# a rebuilt account stays unenrolled and gets no scan tags, so the API's gate refuses every download.
+resource "azurerm_security_center_storage_defender" "receipts" {
+  storage_account_id                          = azurerm_storage_account.receipts.id
+  malware_scanning_on_upload_enabled          = true
+  malware_scanning_on_upload_cap_gb_per_month = 10
+  sensitive_data_discovery_enabled            = false
+  override_subscription_settings_enabled      = true
+}
