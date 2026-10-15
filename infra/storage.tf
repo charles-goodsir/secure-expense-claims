@@ -25,6 +25,11 @@ resource "azurerm_storage_account" "receipts" {
       days = 7
     }
   }
+  # Defender adds its scanner's firewall exception here when malware scanning is on.
+  # Without this, the next apply would delete it and silently break scanning.
+  lifecycle {
+    ignore_changes = [network_rules[0].private_link_access]
+  }
 }
 
 # Created through the management plane (storage_account_id), so the pipeline doesn't
