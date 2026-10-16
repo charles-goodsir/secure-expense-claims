@@ -39,6 +39,11 @@ Container Apps and jobs must not hold secrets: the plan identity can list them. 
   2. Add the Container App's Application Url to `expense-claims-web` under **Single-page application** (not Web).
   3. Each test user signs in once; Adam sets Alice's and Fiona's manager to Manny.
   4. At the end: Infra workflow: destroy, then remove the redirect URI.
+- Malware scanning is a manual step after each rebuild, and only works while the Defender for Storage plan is on. Terraform enrols the new account (`azurerm_security_center_storage_defender`), but the apply leaves `malwareScanning.onUpload` off. Only a PUT run as my own user turns it on, so I suspect the pipeline's Contributor role (not proven). Until it is on, no scan tags land and the API refuses every download with 409:
+  `az rest --method PUT --url "https://management.azure.com/subscriptions/<sub>/resourceGroups/rg-expense-claims/providers/Microsoft.Storage/storageAccounts/<account>/providers/Microsoft.Security/defenderForStorageSettings/current?api-version=2022-12-01-preview" --body '{"properties":{"isEnabled":true,"malwareScanning":{"onUpload":{"isEnabled":true,"capGBPerMonth":10}},"sensitiveDataDiscovery":{"isEnabled":false},"overrideSubscriptionLevelSettings":true}}'`
+- `infra/storage.tf` ignores changes to `network_rules[0].private_link_access`. Once scanning is on, Defender adds a firewall exception for its scanner there, and Terraform would delete it, which stops the scan.
+- The Defender for Storage plan was turned off on 2026-10-16, before its 30-day trial ended, so no scan tags land on later rebuilds and receipt downloads return 409 (`Receipts:RequireScan` defaults to true). Turn the plan back on to use the scan gate.
+- Anyone with blob tag write access can set the scan tag by hand. The gate is only as strong as who holds that permission.
 
 ## Gotcha
 
