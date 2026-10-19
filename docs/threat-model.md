@@ -141,3 +141,19 @@ layers were checked live.
   They're identifiers, not credentials.
 - **The dev sign-in code is still in the production bundle.** The server ignores those
   headers outside Development (S2), so this is cosmetic.
+
+## Phase 5 results: detections
+
+Sentinel watches the `AUDIT` lines the API copies to the logs after each audit row is saved
+(T3, R2). Two rules are code in `infra/main.tf`: a decision by someone who isn't the
+employee's manager (R2, E3), and a decision soon after the manager was changed (R2). Each
+was tested on made-up log lines, including with the comparison flipped, and then on the live
+app. The details, and the limits, are in `docs/detections.md`.
+
+- **A quiet result can be an empty one.** The first live check showed no incidents, but both
+  approvals had no `SetManager` line in the logs, so the rule had nothing to compare. Only
+  after the manager was set again did the same query say the manager matches.
+- **Failed sign-ins and forged tokens (S1) have no detection.** The API logs no token
+  failures and Entra's sign-in logs need a paid licence.
+- **The rules detect and block nothing.** The API's own checks are the control; the rules
+  catch an API bug or a database edit.
