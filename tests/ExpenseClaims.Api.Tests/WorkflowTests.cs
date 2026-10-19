@@ -91,6 +91,19 @@ public class WorkflowTests(ApiFactory factory) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Approval_is_copied_to_the_log()
+    {
+        var team = await TeamAsync();
+        var claimId = await SubmittedClaimAsync(team.Employee);
+
+        await team.Manager.PostAsync($"/claims/{claimId}/approve", null);
+
+        var line = Assert.Single(factory.LogLines, l => l.StartsWith("AUDIT") && l.Contains($"claim={claimId}") && l.Contains("action=Approve"));
+        Assert.Contains($"actor={team.ManagerId}", line);
+        Assert.Contains($"employee={team.EmployeeId}", line);
+    }
+
+    [Fact]
     public async Task Manager_can_reject_a_direct_reports_claim()
     {
         var team = await TeamAsync();
