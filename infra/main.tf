@@ -72,3 +72,40 @@ resource "azurerm_sentinel_alert_rule_scheduled" "approval_by_non_manager" {
     | project TimeGenerated, claim, actor, employee, expectedManager = newManager
   KQL
 }
+# R2: a decision made by a manager who was assigned to the employee less than an hour earlier,
+# the pattern for an admin routing someone's claims to a friend. It also fires in our own test
+# sessions, which is useful as a real-path check. In production the window would be tuned.
+resource "azurerm_sentinel_alert_rule_scheduled" "approval_after_manager_change" {
+  name                       = "approval-after-manager-change"
+  log_analytics_workspace_id = azurerm_sentinel_log_analytics_workspace_onboarding.main.workspace_id
+  display_name               = "Approval or rejection soon after the employee's manager was changed"
+  severity                   = "Medium"
+  query_frequency            = "PT5M"
+  query_period               = "P1D"
+  trigger_operator           = "GreaterThan"
+  trigger_threshold          = 0
+
+  query = <<-KQL
+    let lookback = 15m;
+    let window = 1h;
+    let src = ContainerAppConsoleLogs_CL;
+    let audit = src
+    | where Log_s contains "AUDIT action="
+    | extend action = extract(@"action=(\S+)", 1, Log_s),
+             actor = extract(@"actor=(\S+)", 1, Log_s),
+             claim = extract(@"claim=(\S+)", 1, Log_s),
+             employee = extract(@"employee=(\S+)", 1, Log_s),
+             detail = extract(@"detail=(.*)$", 1, Log_s);
+    let managerSet = audit
+    | where action == "SetManager"
+    | project SetAt = TimeGenerated, changedBy = actor, employeeId = extract(@"user (\S+):", 1, detail), newManager = extract(@"-> (\S+)", 1, detail);
+    audit
+    | where TimeGenerated > ago(lookback)
+    | where action in ("Approve", "Reject")
+    | join kind=inner managerSet on $left.employee == $right.employeeId
+    | where SetAt <= TimeGenerated and TimeGenerated - SetAt < window
+    | summarize arg_max(SetAt, newManager, changedBy) by TimeGenerated, claim, actor, employee
+    | where actor == newManager
+    | project TimeGenerated, claim, approvedBy = actor, employee, changedBy, minutesAfterChange = datetime_diff('minute', TimeGenerated, SetAt)
+  KQL
+}
