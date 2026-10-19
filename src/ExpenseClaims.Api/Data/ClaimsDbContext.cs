@@ -1,15 +1,35 @@
 using ExpenseClaims.Api.Domain;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace ExpenseClaims.Api.Data;
 
-public class ClaimsDbContext(DbContextOptions<ClaimsDbContext> options) : DbContext(options)
+public class ClaimsDbContext(DbContextOptions<ClaimsDbContext> options, ILogger<ClaimsDbContext> log) : DbContext(options)
 {
     public DbSet<User> Users => Set<User>();
     public DbSet<Claim> Claims => Set<Claim>();
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
 
     public DbSet<Receipt> Receipts => Set<Receipt>();
+
+    // Copies each audit row to the log once it is saved, so Sentinel can read it (threat T3).
+    // Only ids go in: no names, amounts or bank details.
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        var audits = ChangeTracker.Entries<AuditEntry>()
+            .Where(e => e.State == EntityState.Added).Select(e => e.Entity).ToList();
+        var employees = ChangeTracker.Entries<Claim>().ToDictionary(e => e.Entity.Id, e => e.Entity.EmployeeId);
+
+        var saved = await base.SaveChangesAsync(cancellationToken);
+
+        foreach (var a in audits)
+        {
+            var employee = a.ClaimId is { } c && employees.TryGetValue(c, out var e) ? e.ToString() : "none";
+            log.LogInformation("AUDIT action={Action} actor={Actor} claim={Claim} employee={Employee} from={From} to={To} detail={Detail}",
+                a.Action, a.ActorId, a.ClaimId?.ToString() ?? "none", employee, a.FromStatus, a.ToStatus, a.Detail);
+        }
+        return saved;
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.Azurite;
 using Testcontainers.PostgreSql;
+using System.Collections.Concurrent;
+using Microsoft.Extensions.Logging;
 
 namespace ExpenseClaims.Api.Tests;
 
@@ -20,11 +22,14 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         .WithCommand("--skipApiVersionCheck")
         .Build();
 
+    public ConcurrentQueue<string> LogLines { get; } = new();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseSetting("ConnectionStrings:Claims", _db.GetConnectionString());
         builder.UseSetting("ConnectionStrings:Receipts", _blobs.GetConnectionString());
         builder.UseSetting("Receipts:RequireScan", "false");
+        builder.ConfigureLogging(logging => logging.AddProvider(new CapturingLoggerProvider(LogLines)));
     }
 
     public async Task InitializeAsync()
@@ -42,4 +47,19 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     public ClaimsDbContext NewDbContext() =>
         Services.CreateScope().ServiceProvider.GetRequiredService<ClaimsDbContext>();
+
+    internal sealed class CapturingLoggerProvider(ConcurrentQueue<string> lines) : ILoggerProvider
+    {
+        public ILogger CreateLogger(string categoryName) => new Capture(lines);
+        public void Dispose() { }
+
+        private sealed class Capture(ConcurrentQueue<string> lines) : ILogger
+        {
+            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+            public bool IsEnabled(LogLevel logLevel) => true;
+            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+                Func<TState, Exception?, string> formatter) => lines.Enqueue(formatter(state, exception));
+        }
+    }
 }
+
