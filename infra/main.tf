@@ -29,4 +29,10 @@ resource "azurerm_log_analytics_workspace" "main" {
   retention_in_days   = 30
   # Stops ingestion for the day after 100 MB, so a noisy app can't run up a bill (D3).
   daily_quota_gb = 0.1
+
+
+}
+# Turns Microsoft Sentinel on for the workspace. Detection rules come in later steps.
+resource "azurerm_sentinel_log_analytics_workspace_onboarding" "main" {
+  workspace_id = azurerm_log_analytics_workspace.main.id
 }
