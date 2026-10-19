@@ -44,6 +44,10 @@ Container Apps and jobs must not hold secrets: the plan identity can list them. 
 - `infra/storage.tf` ignores changes to `network_rules[0].private_link_access`. Once scanning is on, Defender adds a firewall exception for its scanner there, and Terraform would delete it, which stops the scan.
 - The Defender for Storage plan was turned off on 2026-10-16, before its 30-day trial ended, so no scan tags land on later rebuilds and receipt downloads return 409 (`Receipts:RequireScan` defaults to true). Turn the plan back on to use the scan gate.
 - Anyone with blob tag write access can set the scan tag by hand. The gate is only as strong as who holds that permission.
+- Until that PUT is done, and while the Defender plan is off, every plan shows one change to `azurerm_security_center_storage_defender.receipts` (scanning false to true, cap -1 to 10). It's the same request the pipeline can't act on, so applying it is harmless, but it means a clean plan is "1 to change", and the weekly drift check goes red whenever the environment is up.
+- The destroy failed on the Entra admin delete (`polling after AdministratorsMicrosoftEntraDelete: context deadline exceeded`) on both of the last two runs, even with the 120-minute timeouts, because the server handles one operation at a time. The re-run finished in about 12 minutes last time.
+- Billing: the free trial was found expired on 2026-10-19, with the subscription paused, so it was upgraded to pay-as-you-go. That removes the spending limit, and Azure doesn't offer one on pay-as-you-go, so nothing stops spend. Two budgets only email goodsirces@gmail.com: `Budget` (NZ$5 a month, alerts at 50% and 80% actual and 100% forecast) and `expense-claims` (NZ$10, 50% actual and 100% forecast). Both were made outside Terraform. Destroying at the end of each session is the real cost control.
+- Sentinel rules are Terraform (`infra/main.tf`), see `docs/detections.md`. Azure also adds its own "Advanced Multistage Attack Detection" rule when Sentinel is turned on. It isn't in Terraform and I haven't checked what it costs.
 
 ## Gotcha
 
