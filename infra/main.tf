@@ -36,3 +36,39 @@ resource "azurerm_log_analytics_workspace" "main" {
 resource "azurerm_sentinel_log_analytics_workspace_onboarding" "main" {
   workspace_id = azurerm_log_analytics_workspace.main.id
 }
+# R2/E3: an approval or rejection by someone who isn't the employee's manager, judged from the
+# SetManager lines in the same logs. The API already refuses this, so this catches an API bug or
+# a database edit. Silent if no SetManager line exists for the employee.
+resource "azurerm_sentinel_alert_rule_scheduled" "approval_by_non_manager" {
+  name                       = "approval-by-non-manager"
+  log_analytics_workspace_id = azurerm_sentinel_log_analytics_workspace_onboarding.main.workspace_id
+  display_name               = "Approval or rejection by someone who isn't the employee's manager"
+  severity                   = "High"
+  query_frequency            = "PT5M"
+  query_period               = "P1D"
+  trigger_operator           = "GreaterThan"
+  trigger_threshold          = 0
+
+  query = <<-KQL
+    let lookback = 15m;
+    let src = ContainerAppConsoleLogs_CL;
+    let audit = src
+    | where Log_s contains "AUDIT action="
+    | extend action = extract(@"action=(\S+)", 1, Log_s),
+             actor = extract(@"actor=(\S+)", 1, Log_s),
+             claim = extract(@"claim=(\S+)", 1, Log_s),
+             employee = extract(@"employee=(\S+)", 1, Log_s),
+             detail = extract(@"detail=(.*)$", 1, Log_s);
+    let managerSet = audit
+    | where action == "SetManager"
+    | project SetAt = TimeGenerated, employeeId = extract(@"user (\S+):", 1, detail), newManager = extract(@"-> (\S+)", 1, detail);
+    audit
+    | where TimeGenerated > ago(lookback)
+    | where action in ("Approve", "Reject")
+    | join kind=inner managerSet on $left.employee == $right.employeeId
+    | where SetAt <= TimeGenerated
+    | summarize arg_max(SetAt, newManager) by TimeGenerated, claim, actor, employee
+    | where actor != newManager
+    | project TimeGenerated, claim, actor, employee, expectedManager = newManager
+  KQL
+}
